@@ -20,6 +20,17 @@ Resources:
       Tracing: Active
       Architectures:
         - x86_64
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref ProcessedDocumentsTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProcessedDocumentsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: "*"
 
   DocumentsBucket:
     Type: AWS::S3::Bucket
