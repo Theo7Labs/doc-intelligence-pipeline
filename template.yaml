@@ -3,14 +3,15 @@ Transform: AWS::Serverless-2016-10-31
 Description: >
   doc-intelligence-pipeline
 
-  Sample SAM Template for doc-intelligence-pipeline
+  AI Document Intelligence Pipeline with API Gateway for frontend
 
-# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
 Globals:
   Function:
     Timeout: 60
 
 Resources:
+  # ============ EXISTING RESOURCES ============
+  
   HelloWorldFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -56,6 +57,17 @@ Resources:
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - "*"
+            AllowedMethods:
+              - GET
+              - PUT
+              - POST
+            AllowedOrigins:
+              - "*"
+            MaxAge: 3000
 
   ProcessedDocumentsTable:
     Type: AWS::DynamoDB::Table
@@ -68,3 +80,74 @@ Resources:
       KeySchema:
         - AttributeName: document_id
           KeyType: HASH
+
+  # ============ NEW: API GATEWAY + FUNCTIONS ============
+
+  # Lambda to generate presigned upload URLs
+  GetUploadUrlFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: api/
+      Handler: upload_url.lambda_handler
+      Runtime: python3.11
+      Tracing: Active
+      Architectures:
+        - x86_64
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref DocumentsBucket
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref DocumentsBucket
+      Events:
+        GetUploadUrl:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DocumentApi
+            Path: /upload-url
+            Method: GET
+
+  # Lambda to get processed documents from DynamoDB
+  GetDocumentsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: api/
+      Handler: get_documents.lambda_handler
+      Runtime: python3.11
+      Tracing: Active
+      Architectures:
+        - x86_64
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref ProcessedDocumentsTable
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ProcessedDocumentsTable
+      Events:
+        GetDocuments:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DocumentApi
+            Path: /documents
+            Method: GET
+
+  # API Gateway
+  DocumentApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+      Cors:
+        AllowMethods: "'GET,POST,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+
+Outputs:
+  ApiEndpoint:
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${DocumentApi}.execute-api.${AWS::Region}.amazonaws.com/prod"
+  DocumentsBucket:
+    Description: "S3 bucket for document uploads"
+    Value: !Ref DocumentsBucket
+  ProcessedDocumentsTable:
+    Description: "DynamoDB table for processed documents"
+    Value: !Ref ProcessedDocumentsTable
