@@ -28,3 +28,14 @@ PDF Upload → S3 → Lambda → Bedrock AI → DynamoDB → API → Frontend
 
 ---
 Built by [Theo7Labs](https://github.com/Theo7Labs)
+Add a "Security" section to README.md documenting our secret scanning setup. Include:
+
+- Pre-commit hook with gitleaks v8.21.2 that blocks any commit containing secrets
+- .env.example template showing required environment variables (TABLE_NAME, BUCKET_NAME, AWS_SAM_STACK_NAME) — actual .env files are gitignored
+- Hardened .gitignore covering credentials, *.pem, *.key, AWS config files, and .aws-sam build artifacts
+- Setup instructions for new contributors:
+  1. pip install pre-commit
+  2. python -m pre_commit install
+  3. Verify with: python -m pre_commit run gitleaks --all-files
+
+Keep it concise — under a ## Security header. Place it after any existing setup/installation sections.
